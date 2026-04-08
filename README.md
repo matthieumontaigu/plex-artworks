@@ -14,8 +14,8 @@ Tools and services to manage and update movie artworks (posters, backgrounds, lo
 
 1) Clone the repository
 ```bash
-git clone https://github.com/your-repo/plex-poster-manager.git
-cd plex-poster-manager
+git clone https://github.com/your-repo/plex-artworks.git
+cd plex-artworks
 ```
 
 2) Install dependencies
@@ -68,7 +68,7 @@ Both the scheduler service and the Apple TV → Plex updater use a JSON config f
     "retention_days": 7
   },
   "log": {
-    "path": "./logs/plex-poster-manager.log",
+    "path": "./logs/plex-artworks.log",
     "level": "INFO"
   }
 }
