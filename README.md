@@ -1,4 +1,4 @@
-# plex-poster-manager
+# plex-artworks
 
 Tools and services to manage and update movie artworks (posters, backgrounds, logos) on a Plex server. It integrates with external sources like Apple TV and TMDB to fetch, select, and upload artworks, and can also localize metadata.
 
