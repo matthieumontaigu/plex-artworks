@@ -29,7 +29,7 @@ DISALLOWED_RE = re.compile(
     )
 )
 
-CANONICAL_RE = re.compile(r"^/([a-z]{2,3})/(show|movie)/.+/umc\.cm[cp]\.[\w.]+/?$")
+CANONICAL_RE = re.compile(r"^/([a-z]{2,3})/(show|movie)/(.+/)?umc\.cm[cp]\.[\w.]+/?$")
 
 
 class Scorer:
