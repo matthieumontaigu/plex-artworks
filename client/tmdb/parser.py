@@ -32,16 +32,16 @@ class CountryInfo(TypedDict):
 
 
 def get_country_release_date(
-    results: list[CountryInfo], country_code: str
+    results: list[CountryInfo], country_code: str, type_order: list[int] = [3, 4, 5]
 ) -> str | None:
     for country_info in results:
         if country_info["iso_3166_1"] == country_code:
-            return get_first_release_date(country_info["release_dates"])
+            return get_first_release_date(country_info["release_dates"], type_order)
     return None
 
 
 def get_first_release_date(
-    release_dates: list[ReleaseDate], type: int = 3
+    release_dates: list[ReleaseDate], type_order: list[int] = [3, 4, 5]
 ) -> str | None:
     """
     Release	Type
@@ -52,7 +52,8 @@ def get_first_release_date(
     Physical	5
     TV	6
     """
-    for release_date in release_dates:
-        if release_date["type"] == type:
-            return release_date["release_date"]
+    by_type: dict[int, str] = {rd["type"]: rd["release_date"] for rd in release_dates}
+    for t in type_order:
+        if t in by_type:
+            return by_type[t]
     return None
