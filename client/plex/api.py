@@ -93,7 +93,8 @@ class PlexAPIRequester:
         """Update the release date for a movie."""
         endpoint = f"library/metadata/{id}"
         params = {
-            "originallyAvailableAt": release_date,
+            "originallyAvailableAt.value": release_date,
+            "originallyAvailableAt.locked": 1,
         }
 
         response = self.put(endpoint, params)
