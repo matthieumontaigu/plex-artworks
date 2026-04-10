@@ -1,33 +1,28 @@
 # plex-artworks
 
-Tools and services to manage and update movie artworks (posters, backgrounds, logos) on a Plex server. It integrates with external sources like Apple TV and TMDB to fetch, select, and upload artworks, and can also localize metadata.
+Personal Python utilities for keeping movie artwork and selected metadata in sync on a Plex server.
 
-## Features
-- Fetch and upload posters, backgrounds, and logos for movies
-- Update and localize movie metadata (e.g., release dates)
-- Detect missing artworks and process recently added items
-- Run scheduled tasks or perform one-off updates from Apple TV links
+This repository is focused on a specific Plex workflow: use metadata from Apple TV and TMDB pages and APIs where available, choose the best artwork match, upload assets to Plex, and optionally update localized release dates.
 
----
+## What is in this repository
 
-## Installation
+- A scheduled service that processes recently added movies, movies with missing artwork, and artwork reverts
+- A CLI tool for updating a single Plex item from an Apple TV page
+- Supporting clients for Plex, Apple TV, TMDB, Google Custom Search, caching, and scheduling
 
-1) Clone the repository
-```bash
-git clone https://github.com/your-repo/plex-artworks.git
-cd plex-artworks
-```
+## Repository layout
 
-2) Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
----
+- `services/main.py`: entry point for the long-running scheduler service
+- `tools/plex_updater.py`: one-off CLI for updating a single Plex item
+- `client/`: integration code for Plex and supported metadata providers
+- `services/`: artwork retrieval, selection, upload, localization, and scheduled tasks
+- `storage/`: cache helpers for scheduled runs
 
 ## Configuration
 
-Both the scheduler service and the Apple TV → Plex updater use a JSON config file. The top-level shape matches what `services/main.py` expects:
+The scheduler and the CLI tool both read a JSON config file.
+
+Example:
 
 ```json
 {
@@ -58,6 +53,10 @@ Both the scheduler service and the Apple TV → Plex updater use a JSON config f
     },
     "movies_sleep_interval": 1.0
   },
+  "missing_artworks_task": {
+    "search_quota": 100,
+    "recent_threshold_days": 7
+  },
   "schedules": {
     "recently_added": { "type": "interval", "params": [3600] },
     "missing_artworks": { "type": "interval", "params": [86400] },
@@ -74,90 +73,57 @@ Both the scheduler service and the Apple TV → Plex updater use a JSON config f
 }
 ```
 
-Notes
-- Schedules: type and params are passed to the internal scheduler (e.g., interval in seconds). Adjust to your needs.
-- Only the `plex` section is required by the Apple TV → Plex updater tool.
+Notes:
 
----
+- `plex`, `tmdb`, `google`, `artworks`, `missing_artworks_task`, `schedules`, `cache`, and `log` are all expected by `services/main.py`
+- `tools/plex_updater.py` only needs the `plex` section from the same config file
+- Keep real tokens and server URLs out of version control
 
-## Run the scheduler service (services/main.py)
+## Running the scheduler
 
-Starts the long-running tasks (recently added, missing artworks, revert), using the config above.
+The scheduler service wires together the Plex, TMDB, Apple TV, and Google clients, then runs three configured tasks:
+
+- recently added movies
+- movies with missing artwork
+- artwork reverter
+
+Run it with:
 
 ```bash
 python services/main.py --config-path /path/to/config.json
 ```
 
-What it does
-- Instantiates Plex, TMDB, and Google clients
-- Retrieves artworks (Apple TV, TMDB), selects the best match, uploads to Plex
-- Updates metadata and runs on the schedule you configure
+## Updating one Plex item from Apple TV
 
----
+`tools/plex_updater.py` provides a small CLI with two subcommands:
 
-## One-off Apple TV → Plex updater (tools/plex_updater.py)
+- `apple`: retrieve artwork associated with an Apple TV title page for manual Plex item updates
+- `logo`: upload a logo directly from an image URL
 
-Upload poster/background/logo for a single Plex item by pointing to an Apple TV title page.
+Examples:
 
-### CLI usage
 ```bash
-python tools/plex_updater.py \
+python tools/plex_updater.py apple \
   --config-path /path/to/config.json \
   --plex-url "https://app.plex.tv/desktop#!/server/<server-id>/details?key=metadata%2F123456&..." \
   --apple-url "https://tv.apple.com/<locale>/movie/<slug>/<id>"
 ```
 
-Behavior
-- Extracts poster, background, and logo from the Apple TV page
-- Uploads any that are found to the Plex item derived from the Plex URL
-- Logging is controlled by your config (see `log` section)
-
-URL tips
-- The Plex URL must contain the encoded metadata key (e.g., `metadata%2F123456&…`). The tool extracts the numeric ID from there.
-
-### Programmatic usage
-```python
-from utils.file_utils import load_json_file
-from client.plex.manager import PlexManager
-from tools.plex_updater import PlexUpdater
-
-config = load_json_file("/path/to/config.json")
-plex_manager = PlexManager(**config["plex"])  # expects keys: plex_url, plex_token, metadata_country, metadata_path
-
-plex_url = "https://app.plex.tv/desktop#!/server/<server-id>/details?key=metadata%2F123456&X-Plex-Token=<token>"
-apple_tv_url = "https://tv.apple.com/us/movie/inception/tt123456789"
-
-updater = PlexUpdater(plex_manager)
-# All three booleans default to True; set to False to skip an asset type
-updater.update(plex_url, apple_tv_url, poster=True, background=True, logo=True)
-
-# You can also upload only a known logo URL to a Plex item
-updater.upload_logo_from_url(plex_url, "https://example.com/logo.png")
-```
-
----
-
-## Batch editing
-
-There is also a small batch helper script for bulk operations:
 ```bash
-python tools/batch.py --help
+python tools/plex_updater.py logo \
+  --config-path /path/to/config.json \
+  --plex-url "https://app.plex.tv/desktop#!/server/<server-id>/details?key=metadata%2F123456&..." \
+  --logo-url "https://example.com/logo.png"
 ```
 
----
+The Plex URL must contain the encoded metadata key so the script can extract the numeric Plex item id.
 
-## Logging
+## Development notes
 
-Logs use the `log.path` and `log.level` from your config. Ensure the directory exists or is creatable by the process.
-
----
-
-## Contributing
-
-Issues and PRs are welcome.
-
----
+- This repository does not currently ship as a packaged Python project
+- Install the Python dependencies used by the codebase in your preferred environment before running the scripts
+- Tests live alongside the implementation under `client/`, `services/`, and `storage/`
 
 ## License
 
-MIT License
+MIT
