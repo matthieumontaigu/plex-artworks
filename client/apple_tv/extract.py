@@ -39,8 +39,15 @@ def get_cover_art_url(attributes: Attributes) -> str | None:
 
 
 def get_poster_url(page: BeautifulSoup, url: str, max_persons: int = 3) -> str | None:
-    movie_umc_id = get_umc_id(url)
-    if not movie_umc_id:
+    content_umc_id = get_umc_id(url)
+    if not content_umc_id:
+        return None
+
+    if "/movie/" in url:
+        entity = "movie"
+    elif "/show/" in url:
+        entity = "show"
+    else:
         return None
 
     pattern = re.compile(r"^person-lockup")
@@ -51,30 +58,32 @@ def get_poster_url(page: BeautifulSoup, url: str, max_persons: int = 3) -> str |
     crew_to_test = crew[:max_persons]  # Limit to first max_persons persons only
     for person in crew_to_test:
         person_url = person["href"]
-        poster_url = get_poster_from_person(person_url, movie_umc_id)
+        poster_url = get_poster_from_person(person_url, content_umc_id, entity)
         if poster_url:
             return poster_url
 
         time.sleep(1.0)  # Be nice to Apple servers
 
 
-def get_poster_from_person(person_url: str, movie_umc_id: str) -> str | None:
-    person_movies_url = person_url_to_movies_collection(person_url)
-    if not person_movies_url:
+def get_poster_from_person(
+    person_url: str, content_umc_id: str, entity: str
+) -> str | None:
+    person_collection_url = person_url_to_collection(person_url, entity)
+    if not person_collection_url:
         return None
 
-    response = get_request(person_movies_url)
+    response = get_request(person_collection_url)
     if response is None:
         return None
 
     parsed_page = parse_html(response.text)
-    matching_movie = [
-        a for a in parsed_page.find_all("a", href=True) if movie_umc_id in a["href"]
+    matching_content = [
+        a for a in parsed_page.find_all("a", href=True) if content_umc_id in a["href"]
     ]
-    if not matching_movie:
+    if not matching_content:
         return None
 
-    picture = matching_movie[0].picture
+    picture = matching_content[0].picture
     if not picture:
         return None
 
@@ -147,18 +156,34 @@ def get_enlarged_image_url(url: str, size: str) -> str:
     )
 
 
-def person_url_to_movies_collection(url: str) -> str | None:
+_ENTITY_COLLECTION_PATH = {
+    "movie": "movies/uts.col.movies_of_person",
+    "show": "shows/uts.col.shows_of_person_no_kidsfamily",
+}
+
+
+def person_url_to_collection(url: str, entity: str) -> str | None:
     """
     Extract the `umc.*` identifier from an Apple TV person URL and
-    return the corresponding movies collection URL, keeping the same
-    scheme, domain, and country code.
+    return the corresponding collection URL for the given entity type,
+    keeping the same scheme, domain, and country code.
 
-    Example
+    Example (movie)
     -------
     https://tv.apple.com/us/person/josh-o-connor/umc.cpc.2kgky0blff2lspn7skq8vff13
     ->
     https://tv.apple.com/us/collection/movies/uts.col.movies_of_person?ctx_person=umc.cpc.2kgky0blff2lspn7skq8vff13
+
+    Example (show)
+    -------
+    https://tv.apple.com/us/person/josh-o-connor/umc.cpc.2kgky0blff2lspn7skq8vff13
+    ->
+    https://tv.apple.com/us/collection/shows/uts.col.shows_of_person_no_kidsfamily?ctx_person=umc.cpc.2kgky0blff2lspn7skq8vff13
     """
+    collection_path = _ENTITY_COLLECTION_PATH.get(entity)
+    if not collection_path:
+        return None
+
     umc_id = get_umc_id(url)
     if not umc_id:
         return None
@@ -170,4 +195,4 @@ def person_url_to_movies_collection(url: str) -> str | None:
         return None
 
     country = path_parts[0]
-    return f"{parsed.scheme}://{parsed.netloc}/{country}/collection/movies/uts.col.movies_of_person?ctx_person={umc_id}"
+    return f"{parsed.scheme}://{parsed.netloc}/{country}/collection/{collection_path}?ctx_person={umc_id}"
