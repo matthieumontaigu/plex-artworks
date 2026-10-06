@@ -68,26 +68,37 @@ def get_poster_url(page: BeautifulSoup, url: str, max_persons: int = 3) -> str |
 def get_poster_from_person(
     person_url: str, content_umc_id: str, entity: str
 ) -> str | None:
-    person_collection_url = person_url_to_collection(person_url, entity)
-    if not person_collection_url:
+    if entity not in ("movie", "show"):
         return None
 
-    response = get_request(person_collection_url)
-    if response is None:
-        return None
+    for collection_entity in (entity, "kidsfamily"):
+        person_collection_url = person_url_to_collection(person_url, collection_entity)
+        if not person_collection_url:
+            return None
 
-    parsed_page = parse_html(response.text)
-    matching_content = [
-        a for a in parsed_page.find_all("a", href=True) if content_umc_id in a["href"]
-    ]
-    if not matching_content:
-        return None
+        if collection_entity == "kidsfamily":
+            time.sleep(1.0)  # Be nice to Apple servers between collections
 
-    picture = matching_content[0].picture
-    if not picture:
-        return None
+        response = get_request(person_collection_url)
+        if response is None:
+            continue
 
-    return get_image_url(picture, "2000x0w.jpg")
+        parsed_page = parse_html(response.text)
+        matching_content = [
+            a for a in parsed_page.find_all("a", href=True) if content_umc_id in a["href"]
+        ]
+        if not matching_content:
+            continue
+
+        picture = matching_content[0].picture
+        if not picture:
+            continue
+
+        poster_url = get_image_url(picture, "2000x0w.jpg")
+        if poster_url:
+            return poster_url
+
+    return None
 
 
 def get_logo_url(page: BeautifulSoup) -> str | None:
@@ -159,6 +170,7 @@ def get_enlarged_image_url(url: str, size: str) -> str:
 _ENTITY_COLLECTION_PATH = {
     "movie": "movies/uts.col.movies_of_person",
     "show": "shows/uts.col.shows_of_person_no_kidsfamily",
+    "kidsfamily": "enfants-et-famille/uts.col.kidsfamily_of_person",
 }
 
 
