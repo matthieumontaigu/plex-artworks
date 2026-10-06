@@ -31,14 +31,12 @@ class AppleProvider(Provider):
 
         target = Target(title, directors, year, country, entity)
 
-        apple_tv_url, search_count = self.search_engine.query(target)
-        if not apple_tv_url:
-            return None, None, None, search_count
+        apple_tv_urls, search_count = self.search_engine.query(target)
+        for apple_tv_url in apple_tv_urls:
+            attributes, poster_url, background_url, logo_url = get_apple_tv_artworks(
+                apple_tv_url
+            )
+            if self.search_engine.validate(apple_tv_url, attributes, target):
+                return poster_url, background_url, logo_url, search_count
 
-        attributes, poster_url, background_url, logo_url = get_apple_tv_artworks(
-            apple_tv_url
-        )
-        if not self.search_engine.validate(apple_tv_url, attributes, target):
-            return None, None, None, search_count
-
-        return poster_url, background_url, logo_url, search_count
+        return None, None, None, search_count
