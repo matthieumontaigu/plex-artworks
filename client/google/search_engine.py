@@ -50,7 +50,8 @@ class SearchEngine:
 
     # --- public API ---
 
-    def query(self, target: Target) -> tuple[str | None, int]:
+    def query(self, target: Target) -> tuple[list[str], int]:
+        """Return unique best-scoring URLs in discovery order and the query count."""
         title = target.title
         directors = target.directors
         entity = self._normalize_entity(target.entity)
@@ -58,7 +59,8 @@ class SearchEngine:
 
         queries = self._build_queries(title, directors, country, entity)
 
-        best_score, best_url = 0.0, None
+        best_score = 0.0
+        best_urls: list[str] = []
         seen: set[tuple[str, str | None]] = set()
         query_count = 0
 
@@ -79,11 +81,15 @@ class SearchEngine:
                     continue
 
                 if score > best_score:
-                    best_score, best_url = score, item.url
-                    if best_score >= STRONG_SCORE:
-                        return best_url, query_count
+                    best_score, best_urls = score, [item.url]
+                elif score == best_score and item.url not in best_urls:
+                    best_urls.append(item.url)
 
-        return (best_url if best_score >= REQUIRED_SCORE else None), query_count
+            # Finish this response to collect ties before skipping further queries.
+            if best_score >= STRONG_SCORE:
+                break
+
+        return (best_urls if best_score >= REQUIRED_SCORE else []), query_count
 
     def validate(self, url: str, attributes: Attributes | None, target: Target) -> bool:
         score = self.scorer.score_attributes(url, attributes, target)
